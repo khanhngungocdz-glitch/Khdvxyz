@@ -1,0 +1,194 @@
+--// FPS + Anti AFK + Timer UI (Drag + Save State + Button Toggle Menu 🔥)
+-- Khanhdevxyz On Top
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+
+-- Đường dẫn file lưu cấu hình
+local configFile = "fps_antiafk_config.txt"
+
+-- Đọc config
+local function loadConfig()
+    if isfile(configFile) then
+        local data = readfile(configFile)
+        local ok, decoded = pcall(function() return HttpService:JSONDecode(data) end)
+        if ok then return decoded end
+    end
+    return { showFPS = false, antiAFK = false }
+end
+
+-- Lưu config
+local function saveConfig(cfg)
+    writefile(configFile, HttpService:JSONEncode(cfg))
+end
+
+local config = loadConfig()
+
+-- === TẠO UI ===
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+
+-- Nút Toggle Menu 🔥
+local ToggleButton = Instance.new("TextButton", ScreenGui)
+ToggleButton.Size = UDim2.new(0, 40, 0, 40)
+ToggleButton.Position = UDim2.new(0, 10, 0.5, -20)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ToggleButton.Text = "🔥"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.TextSize = 28
+ToggleButton.BorderSizePixel = 0
+ToggleButton.Active = true
+ToggleButton.Draggable = true
+
+-- Khung menu
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 200, 0, 150)
+Frame.Position = UDim2.new(0.05, 0, 0.1, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.BackgroundTransparency = 0.2
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+
+-- Tiêu đề menu
+local Title = Instance.new("TextLabel", Frame)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundTransparency = 1
+Title.Text = "KhanhDevXyz On Top"  -- <-- đổi tên ở đây
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 18
+
+
+-- FPS Toggle Button
+local FPSToggle = Instance.new("TextButton", Frame)
+FPSToggle.Size = UDim2.new(1, -20, 0, 30)
+FPSToggle.Position = UDim2.new(0, 10, 0, 40)
+FPSToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+FPSToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+FPSToggle.Font = Enum.Font.SourceSans
+FPSToggle.TextSize = 16
+
+-- Anti AFK Toggle Button
+local AFKToggle = Instance.new("TextButton", Frame)
+AFKToggle.Size = UDim2.new(1, -20, 0, 30)
+AFKToggle.Position = UDim2.new(0, 10, 0, 80)
+AFKToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+AFKToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+AFKToggle.Font = Enum.Font.SourceSans
+AFKToggle.TextSize = 16
+
+-- Timer Label
+local TimerLabel = Instance.new("TextLabel", Frame)
+TimerLabel.Size = UDim2.new(1, -20, 0, 20)
+TimerLabel.Position = UDim2.new(0, 10, 0, 120)
+TimerLabel.BackgroundTransparency = 1
+TimerLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+TimerLabel.Font = Enum.Font.SourceSans
+TimerLabel.TextSize = 16
+TimerLabel.Text = "Script Runtime: 00:00:00"
+
+-- === FPS SYSTEM ===
+local FPSLabel
+local lastTick = tick()
+local frameCount = 0
+
+local function setFPSToggle(state)
+    config.showFPS = state
+    FPSToggle.Text = "FPS: " .. (state and "ON" or "OFF")
+    saveConfig(config)
+
+    if state then
+        if not FPSLabel then
+            FPSLabel = Instance.new("TextLabel", ScreenGui)
+            FPSLabel.Size = UDim2.new(0, 100, 0, 30)
+            FPSLabel.Position = UDim2.new(0, 10, 0, 10)
+            FPSLabel.BackgroundTransparency = 0.5
+            FPSLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            FPSLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+            FPSLabel.Font = Enum.Font.SourceSansBold
+            FPSLabel.TextSize = 18
+        end
+    else
+        if FPSLabel then
+            FPSLabel:Destroy()
+            FPSLabel = nil
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if config.showFPS and FPSLabel then
+        frameCount += 1
+        if tick() - lastTick >= 1 then
+            FPSLabel.Text = "FPS: " .. frameCount
+            frameCount = 0
+            lastTick = tick()
+        end
+    end
+end)
+
+FPSToggle.MouseButton1Click:Connect(function()
+    setFPSToggle(not config.showFPS)
+end)
+
+-- === ANTI AFK SYSTEM ===
+local antiAFKConn
+
+local function setAntiAFK(state)
+    config.antiAFK = state
+    AFKToggle.Text = "Anti AFK: " .. (state and "ON" or "OFF")
+    saveConfig(config)
+
+    if state then
+        for _, v in pairs(getconnections(LocalPlayer.Idled)) do
+            v:Disable()
+        end
+        antiAFKConn = task.spawn(function()
+            while config.antiAFK do
+                task.wait(300)
+                VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                task.wait(1)
+                VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            end
+        end)
+    else
+        if antiAFKConn then
+            task.cancel(antiAFKConn)
+            antiAFKConn = nil
+        end
+    end
+end
+
+AFKToggle.MouseButton1Click:Connect(function()
+    setAntiAFK(not config.antiAFK)
+end)
+
+-- === Load trạng thái khi bật lại script ===
+setFPSToggle(config.showFPS)
+setAntiAFK(config.antiAFK)
+
+-- === Script Runtime Timer ===
+local startTime = tick()
+RunService.Heartbeat:Connect(function()
+    if Frame.Visible then
+        local elapsed = tick() - startTime
+        local hours = math.floor(elapsed / 3600)
+        local minutes = math.floor((elapsed % 3600) / 60)
+        local seconds = math.floor(elapsed % 60)
+        TimerLabel.Text = string.format("Script Runtime: %02d:%02d:%02d", hours, minutes, seconds)
+    end
+end)
+
+-- === Nút Toggle Menu 😜 ===
+local menuVisible = true
+ToggleButton.MouseButton1Click:Connect(function()
+    menuVisible = not menuVisible
+    Frame.Visible = menuVisible
+end)
+
+print("[✅] Script FPS + Anti AFK + Timer UI (Button Toggle Menu 🇻🇳) đã tải xong!")
